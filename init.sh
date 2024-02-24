@@ -1,8 +1,14 @@
 #!/usr/bin/bash
 
 echo "Download pip deps..."
-pip install discord.py TTS llama-cpp-python huggingface-hub torch
+pip install discord.py TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect
 
-echo "Download llama"
-huggingface-cli download TheBloke/Llama-2-7B-GGUF llama-2-7b.Q5_0.gguf --local-dir . --local-dir-use-symlinks False
-mv llama-2-7b.Q5_0.gguf llama_model.gguf
+if ! [ -f llm_model_fast.gguf ]; then
+    echo "Download gpt4all-falcon-newbpe-q4_0.ggu as llm_model_fast.gguf"
+    wget https://gpt4all.io/models/gguf/gpt4all-falcon-newbpe-q4_0.gguf -O llm_model_fast.gguf
+fi 
+
+if ! [ -f llm_model_large.gguf ]; then
+    echo "Download wizardlm-13b-v1.2.Q4_0.gguf as llm_model_large.gguf"
+    wget https://gpt4all.io/models/gguf/wizardlm-13b-v1.2.Q4_0.gguf -O llm_model_large.gguf
+fi
