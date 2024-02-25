@@ -12,5 +12,3 @@ if ! [ -f llm_model_large.gguf ]; then
     echo "Downloading wizardlm-13b-v1.2.Q4_0.gguf as llm_model_large.gguf ..."
     wget -q https://gpt4all.io/models/gguf/wizardlm-13b-v1.2.Q4_0.gguf -O llm_model_large.gguf
 fi
-
-python3 main.py

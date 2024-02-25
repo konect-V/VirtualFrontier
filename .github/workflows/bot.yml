@@ -3,21 +3,19 @@ name: Bot
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - name: Remove unnecessary files
       run: |
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: actions/checkout@v3
+    - name: Get deps
+      run: sh init.sh
     - name: Run bot
       env:
         DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-      run: sh init.sh
+      run: python3 main.py
