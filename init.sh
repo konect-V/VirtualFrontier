@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 echo "Downloading pip deps ..."
-pip install discord.py TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect fs
+pip install discord.py TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect fs llama-cpp-python
 
 if ! [ -f llm_model_fast.gguf ]; then
     echo "Downloading gpt4all-falcon-newbpe-q4_0.ggu as llm_model_fast.gguf ..."
