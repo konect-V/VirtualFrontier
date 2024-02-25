@@ -1,3 +1,4 @@
 *.gguf
 *.wav
 *.mp3
+.vscode
