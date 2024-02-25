@@ -1,18 +1,22 @@
 #!/usr/bin/python3
 
+import fs
 import os
+import queue
 import re
 import sys
 import mmap
 import time
+from gtts import gTTS
 import torch
 import typing
+import shutil
 import asyncio
 import discord
 import threading
 import functools
-from gtts import gTTS 
 from TTS.api import TTS
+from fs.tempfs import TempFS
 from langdetect import detect
 from pydub import AudioSegment
 from discord import app_commands
@@ -27,12 +31,16 @@ from langchain_core.callbacks.base import BaseCallbackHandler
 #global variable
 lock_audio = threading.Lock()
 lock_answer = threading.Lock()
+tmpfspath = ""
+voice_str_list = []
 current_answer = ""
 current_question = ""
+audio_generate_index = 0
 current_sentence_index = 0
-current_audio_sentence_index = 0
-current_original_message = None
+current_voice_channels = None
 last_time_send_to_discord = 0
+current_original_message = None
+audio_generate_queu = queue.Queue()
 
 # Functions
 async def edit_message(original_message, message):
@@ -43,31 +51,76 @@ async def edit_message_file(original_message, message, file_path):
     if os.path.exists(file_path):
         await original_message.add_files(discord.File(file_path))
 
-def generate_audio(voice_str, audio_sentence_index):
-    global current_audio_sentence_index
+def generate_audio_worker():
+    global current_original_message, current_voice_channels, audio_generate_queu, audio_generate_index
 
-    output_path = "output_tmp.mp3"
-    if not os.path.exists("output.mp3"):
-        output_path = "output.mp3"
+    while True:
+        item = audio_generate_queu.get()
+        if item is None:
+            time.sleep(0.1)
+            pass
 
-    try:
-        language = detect(voice_str)
-        gTTS(text=voice_str, lang=language, slow=False).save(output_path)
-    except:
-        pass
+        voice_str = item
+        read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index) + ".wav"
+        output_path = read_audio_path
 
-    # Concatenate the two mp3
-    if output_path == "output_tmp.mp3":
-        sound_first = AudioSegment.from_mp3("output.mp3")
-        sound_second = AudioSegment.from_mp3("output_tmp.mp3")
-        combined_sounds = sound_first + sound_second
-        combined_sounds.export("output.mp3", format="mp3")
+        if not os.path.exists(tmpfspath + "/output.wav"):
+            output_path = tmpfspath + "/output.wav"
 
-    current_audio_sentence_index = audio_sentence_index
+        try:
+            language = detect(voice_str)
+            tts.tts_to_file(text=voice_str, preset="ultra_fast")
+            # Concatenate the two wav
+            if output_path != tmpfspath + "/output.wav":
+                sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
+                sound_second = AudioSegment.from_wav(read_audio_path)
+                combined_sounds = sound_first + sound_second
+                combined_sounds.export(tmpfspath + "/output.wav", format="wav")
+            else:
+                shutil.copyfile(output_path, read_audio_path)
 
+            audio_generate_index += 1
+        except:
+            pass
+
+        audio_generate_queu.task_done()
+
+
+def play_audio_worker():
+    global current_original_message, current_voice_channels, audio_play_queu, audio_generate_index, audio_generate_queu, voice_str_list
+
+    audio_generate_index_read = 0
+    while True:
+        if current_voice_channels != None:
+            if audio_generate_index_read < audio_generate_index:
+                read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index_read) + ".wav"
+                while current_voice_channels.is_playing():
+                    time.sleep(0.01)
+                current_voice_channels.play(discord.FFmpegPCMAudio(source=read_audio_path))
+
+                audio_generate_index_read += 1
+            else:
+                if (not audio_generate_queu.empty()) and (not current_voice_channels.is_playing()):
+                    try:
+                        voice_str = voice_str_list[audio_generate_index_read]
+                        read_audio_path = tmpfspath + "/output_tmp_fast_" + str(audio_generate_index_read) + ".mp3"
+                        language = detect(voice_str)
+                        gTTS(text=voice_str, lang=language).save(read_audio_path)
+                        current_voice_channels.play(discord.FFmpegPCMAudio(source=read_audio_path))
+                        audio_generate_index_read += 1
+                    except:
+                        pass
+                time.sleep(0.01)
+
+
+
+def generate_audio(voice_str):
+    global audio_generate_queu
+    voice_str_list.append(voice_str)
+    audio_generate_queu.put(voice_str)
 
 def generate_answer(llm, original_message, question):
-    global current_answer, current_question, current_original_message, current_sentence_index, current_audio_sentence_index
+    global current_answer, current_question, current_original_message, current_sentence_index, audio_generate_queu, audio_generate_index
 
     lock_answer.acquire(blocking=True, timeout=-1)
 
@@ -76,30 +129,25 @@ def generate_answer(llm, original_message, question):
         prompt = pre_prompt + question + " Assistant: "
 
         # Reset variables
-        if os.path.exists("output.mp3"):
-            os.remove("output.mp3")
+        if os.path.exists(tmpfspath + "/output.wav"):
+            os.remove(tmpfspath + "/output.wav")
         
         current_answer = ""
         current_sentence_index = 0
         current_question = question
         current_original_message = original_message
-        current_audio_sentence_index = 0
 
-        llm(prompt, temperature=0.7, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=512)
+        llm.invoke(prompt, temperature=0.1, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
 
-        while current_sentence_index != current_audio_sentence_index:
-            time.sleep(1)
         
-        sentences = re.split(r'(\.|\?|!|:)', current_answer)
+        sentences = re.split(r'(\.|\?|!|:|,)', current_answer)
         voice_str = sentences[len(sentences) - 1]
-        if voice_str != "\"" and voice_str != "":
-            current_sentence_index += 1
-            thread = threading.Thread(target=generate_audio, args=(voice_str, current_sentence_index,))
-            thread.start()
-            while current_sentence_index != current_audio_sentence_index:
-                time.sleep(1)
+        if voice_str != "":
+            generate_audio(voice_str)
 
-        asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, current_question + "\n" + current_answer, "output.mp3"), client.loop)
+        audio_generate_queu.join()
+
+        asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, current_question + "\n" + current_answer, tmpfspath + "/output.wav"), client.loop)
     except:
         asyncio.run_coroutine_threadsafe(edit_message(original_message, "Text generation error for the following prompt : " + question), client.loop)
 
@@ -125,14 +173,13 @@ class StreamingLLMToDiscord(BaseCallbackHandler):
             voice_str = voice_str + sentences[i + current_sentence_index]
         
         if voice_str != "":
+            generate_audio(voice_str)
             current_sentence_index = len(sentences) - 1
-            thread = threading.Thread(target=generate_audio, args=(voice_str, current_sentence_index,))
-            thread.start()
 
 
         if(time.time() - last_time_send_to_discord > 1):
             last_time_send_to_discord = time.time()
-            asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, current_question + "\n" + current_answer, "output.mp3"), client.loop)
+            asyncio.run_coroutine_threadsafe(edit_message(current_original_message, current_question + "\n" + current_answer), client.loop)
         
         return
     
@@ -171,6 +218,20 @@ class StreamingLLMToDiscord(BaseCallbackHandler):
 
 
 # Main
+
+print("Loading ramfs...")
+mem_fs = TempFS(identifier='virtualfrontiertmp', temp_dir='.', auto_clean=True)
+
+dirs = os.listdir('.')
+for dir in dirs:
+    if "virtualfrontiertmp" in dir:
+        tmpfspath = dir
+        break
+
+
+threading.Thread(target=play_audio_worker).start()
+threading.Thread(target=generate_audio_worker).start()
+
 callback_manager = CallbackManager([StreamingLLMToDiscord()])
 
 print("Loading llm fast...")
@@ -191,7 +252,11 @@ llm_large = LlamaCpp(
     verbose=True
 )
 
-print("Loading Discord")
+print("Loading TTS...")
+device = "cuda" if torch.cuda.is_available() else "cpu"
+tts = TTS(model_name="tts_models/en/multi-dataset/tortoise-v2").to(device)
+
+print("Loading Discord...")
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -217,9 +282,37 @@ async def slash_command(interaction: discord.Interaction, question: str = None):
     thread = threading.Thread(target=generate_answer, args=(llm_large, original_message, question,))
     thread.start()
 
+@tree.command(name="join", description="join your current voice channel")
+async def slash_command(interaction: discord.Interaction):    
+    global current_voice_channels
+
+    await interaction.response.send_message("Connecting to your channel...")
+    original_message = await interaction.original_response()
+    try:
+        channel = interaction.user.voice.channel
+        current_voice_channels = await channel.connect()
+        await edit_message(original_message, "Connect with success to your channel")
+    except:
+        await edit_message(original_message, "Can't connect to your channel")
+
+
+@tree.command(name="leave", description="leave your current voice channel")
+async def slash_command(interaction: discord.Interaction):   
+    global current_voice_channels
+
+    await interaction.response.send_message("Leaving your channel...")
+    original_message = await interaction.original_response()
+
+    for current_voice_channels in client.voice_clients:
+        if current_voice_channels.guild == interaction.guild:
+            await edit_message(original_message, "Leave with success your channel")
+            await current_voice_channels.disconnect()
+            return
+    await edit_message(original_message, "Can't leave your channel")
+
 @client.event
 async def on_ready():
     await tree.sync()
     print(f'Logged in as `{client.user}`')
 
-client.run("MTIwOTg4MjgxMDE0ODcyMDY4MA.Grrxks.64RWwzLlg0AbVXdRGydzSYiJAapDvkot4znYGs")
+client.run(os.environ["DISCORD_TOKEN"])
