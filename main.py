@@ -20,8 +20,8 @@ from fs.tempfs import TempFS
 from langdetect import detect
 from pydub import AudioSegment
 from discord import app_commands
+from typing import Any, Dict, List
 from langchain.llms import LlamaCpp
-from langchain.llms import Any, Dict, List
 from langchain_core.outputs import LLMResult
 from langchain_core.messages import BaseMessage
 from langchain.callbacks.manager import CallbackManager
