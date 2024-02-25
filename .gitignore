@@ -2,3 +2,5 @@
 *.wav
 *.mp3
 .vscode
+
+!input.wav

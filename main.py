@@ -69,7 +69,7 @@ def generate_audio_worker():
 
         try:
             language = detect(voice_str)
-            tts.tts_to_file(text=voice_str, preset="ultra_fast")
+            tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
             # Concatenate the two wav
             if output_path != tmpfspath + "/output.wav":
                 sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
@@ -254,7 +254,7 @@ llm_large = LlamaCpp(
 
 print("Loading TTS...")
 device = "cuda" if torch.cuda.is_available() else "cpu"
-tts = TTS(model_name="tts_models/en/multi-dataset/tortoise-v2").to(device)
+tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 print("Loading Discord...")
 intents = discord.Intents.default()
