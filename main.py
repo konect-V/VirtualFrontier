@@ -22,14 +22,14 @@ from pydub import AudioSegment
 from discord import app_commands
 from typing import Any, Dict, List
 from langchain.llms import LlamaCpp
+from TTS.utils.generic_utils import get_user_data_dir
 from langchain_core.outputs import LLMResult
 from langchain_core.messages import BaseMessage
 from langchain.callbacks.manager import CallbackManager
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.callbacks.base import BaseCallbackHandler
 
-# By using XTTS you agree to CPML license https://coqui.ai/cpml
-os.environ["COQUI_TOS_AGREED"] = "1"
+
 
 #global variable
 lock_audio = threading.Lock()
@@ -257,6 +257,12 @@ llm_large = LlamaCpp(
 
 print("Loading TTS...")
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+model_path = get_user_data_dir("tts/tts_models--multilingual--multi-dataset--xtts_v2")
+print(model_path)
+if not os.path.isdir(model_path):
+    shutil.copytree("tts_model/XTTS-v2", model_path)
+
 tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 print("Loading Discord...")
@@ -291,6 +297,8 @@ async def slash_command(interaction: discord.Interaction):
 
     await interaction.response.send_message("Connecting to your channel...")
     original_message = await interaction.original_response()
+    
+    await client.wait_until_ready()
     try:
         channel = interaction.user.voice.channel
         current_voice_channels = await channel.connect()
@@ -305,6 +313,8 @@ async def slash_command(interaction: discord.Interaction):
 
     await interaction.response.send_message("Leaving your channel...")
     original_message = await interaction.original_response()
+
+    await client.wait_until_ready()
 
     for current_voice_channels in client.voice_clients:
         if current_voice_channels.guild == interaction.guild:

@@ -3,4 +3,6 @@
 *.mp3
 .vscode
 
+tts_model
+
 !input.wav

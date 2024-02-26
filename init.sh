@@ -12,3 +12,11 @@ if ! [ -f llm_model_large.gguf ]; then
     echo "Downloading wizardlm-13b-v1.2.Q4_0.gguf as llm_model_large.gguf ..."
     wget -q https://gpt4all.io/models/gguf/wizardlm-13b-v1.2.Q4_0.gguf -O llm_model_large.gguf
 fi
+
+if ! [ -d tts_model ]; then
+    sudo apt install git-lfs
+    git lfs install
+    mkdir tts_model
+    cd tts_model
+    GIT_LFS_SKIP_SMUDGE=0 git clone https://huggingface.co/coqui/XTTS-v2
+fi
