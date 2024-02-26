@@ -28,6 +28,9 @@ from langchain.callbacks.manager import CallbackManager
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.callbacks.base import BaseCallbackHandler
 
+# By using XTTS you agree to CPML license https://coqui.ai/cpml
+os.environ["COQUI_TOS_AGREED"] = "1"
+
 #global variable
 lock_audio = threading.Lock()
 lock_answer = threading.Lock()
