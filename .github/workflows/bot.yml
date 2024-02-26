@@ -10,25 +10,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Check if 6 hours have passed
-      id: check-time
-      run: echo ::set-output name=should_run::$(test $((($(date +%s) - $(date -d "$(git log -1 --format=%ci)" +%s)) / 3600)) -ge 6 && echo true || echo false)
     - name: Remove unnecessary files
-      if: steps.check-time.outputs.should_run == 'true'
       run: |
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: actions/checkout@v3
-    - name: Check if 'Get deps' is needed
-      id: check-get-deps
-      run: echo ::set-output name=should_run::$(test $((($(date +%s) - $(date -r "deps.timestamp" +%s)) / 3600)) -ge 6 && echo true || echo false)
     - name: Get deps
-      if: steps.check-time.outputs.should_run == 'true' && steps.check-get-deps.outputs.should_run == 'true'
-      run: 
-        touch deps.timestamp
-        sh init.sh
+      run: sh init.sh
     - name: Run bot
-      if: steps.check-time.outputs.should_run == 'true'
       env:
         DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
       run: python3 main.py
