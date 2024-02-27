@@ -304,8 +304,7 @@ async def slash_command(interaction: discord.Interaction):
         current_voice_channels = await channel.connect()
         await edit_message(original_message, "Connect with success to your channel")
     except Exception as e:
-        print(e)
-        await edit_message(original_message, "Can't connect to your channel")
+        await edit_message(original_message, "Can't connect to your channel : " + e)
 
 
 @tree.command(name="leave", description="leave your current voice channel")
