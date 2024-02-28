@@ -172,9 +172,11 @@ def generate_answer(llm, original_message, question):
         if voice_str != "":
             generate_audio(voice_str)
 
+        asyncio.run_coroutine_threadsafe(edit_message(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End of text generation)* \n *(Finishing to generate audio...)* "), client.loop)
+        
         audio_generate_queu.join()
 
-        asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End of text generation)* ", tmpfspath + "/output.wav"), client.loop)
+        asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End generation)* ", tmpfspath + "/output.wav"), client.loop)
     except:
         asyncio.run_coroutine_threadsafe(edit_message(original_message, "Text generation error for the following prompt : " + question), client.loop)
 
