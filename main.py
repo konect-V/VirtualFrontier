@@ -118,8 +118,12 @@ def play_audio_worker():
 
                 while current_voice_channels.is_playing():
                     time.sleep(0.01)
-                current_voice_channels.play(discord.FFmpegPCMAudio(source=read_audio_path))
-
+                
+                try:
+                    current_voice_channels.play(discord.FFmpegPCMAudio(source=read_audio_path))
+                except:
+                    pass
+                
                 audio_generate_index_read += 1
             else:
                 if (not audio_generate_queu.empty()) and (not current_voice_channels.is_playing()):
