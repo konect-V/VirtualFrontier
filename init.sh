@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 echo "Downloading deps ..."
-sudo apt install ffmpeg libavcodec-extra-53
+sudo apt install ffmpeg libavcodec-extra
 
 echo "Downloading pip deps ..."
 pip install discord.py TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect fs llama-cpp-python
