@@ -38,6 +38,7 @@ tmpfspath = ""
 voice_str_list = []
 current_answer = ""
 current_question = ""
+use_natural_tts = True
 audio_generate_index = 0
 current_sentence_index = 0
 current_voice_channels = None
@@ -72,7 +73,7 @@ def generate_audio_worker():
 
         try:
             language = detect(voice_str)
-            if device == "cuda":
+            if use_natural_tts:
                 read_audio_path += ".wav"
                 tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
                 # Concatenate the two wav
@@ -111,7 +112,7 @@ def play_audio_worker():
         if current_voice_channels != None:
             if audio_generate_index_read < audio_generate_index:
                 read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index_read)
-                if device == "cuda":
+                if use_natural_tts:
                     read_audio_path += ".wav"
                 else:
                     read_audio_path += ".mp3"
@@ -276,9 +277,8 @@ llm_large = LlamaCpp(
 )
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-device = "cpu"
 
-if device == "cuda": # Use TTS only if cuda is available
+if use_natural_tts: # Use TTS only if cuda is available
     print("Loading TTS...")
     model_path = get_user_data_dir("tts/tts_models--multilingual--multi-dataset--xtts_v2")
     if not os.path.isdir(model_path):
