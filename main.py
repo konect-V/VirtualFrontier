@@ -94,7 +94,7 @@ def generate_audio_worker():
                     combined_sounds = sound_first + sound_second
                     combined_sounds.export(tmpfspath + "/output.wav", format="wav")
                 else:
-                    shutil.copyfile(output_path, read_audio_path)
+                    AudioSegment.from_mp3(read_audio_path).export(output_path, format="wav")
 
             audio_generate_index += 1
         except:
@@ -266,12 +266,12 @@ llm_large = LlamaCpp(
     verbose=True
 )
 
-print("Loading TTS...")
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-model_path = get_user_data_dir("tts/tts_models--multilingual--multi-dataset--xtts_v2")
+device = "cpu"
 
 if device == "cuda": # Use TTS only if cuda is available
+    print("Loading TTS...")
+    model_path = get_user_data_dir("tts/tts_models--multilingual--multi-dataset--xtts_v2")
     if not os.path.isdir(model_path):
         shutil.copytree("tts_model/XTTS-v2", model_path)
     tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to(device)
