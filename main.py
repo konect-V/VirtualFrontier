@@ -110,7 +110,12 @@ def play_audio_worker():
     while True:
         if current_voice_channels != None:
             if audio_generate_index_read < audio_generate_index:
-                read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index_read) + ".wav"
+                read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index_read)
+                if device == "cuda":
+                    read_audio_path += ".wav"
+                else:
+                    read_audio_path += ".mp3"
+
                 while current_voice_channels.is_playing():
                     time.sleep(0.01)
                 current_voice_channels.play(discord.FFmpegPCMAudio(source=read_audio_path))
@@ -315,16 +320,13 @@ async def slash_command(interaction: discord.Interaction):
     
     await client.wait_until_ready()
     
-    channel = interaction.user.voice.channel
-    current_voice_channels = await channel.connect()
-    await edit_message(original_message, "Connect with success to your channel")
-    # try:
-    #     channel = interaction.user.voice.channel
-    #     current_voice_channels = await channel.connect()
-    #     await edit_message(original_message, "Connect with success to your channel")
-    # except Exception as e:
-    #     print(e)
-    #     await edit_message(original_message, "Can't connect to your channel")
+    try:
+        channel = interaction.user.voice.channel
+        current_voice_channels = await channel.connect()
+        await edit_message(original_message, "Connect with success to your channel")
+    except Exception as e:
+        print(e)
+        await edit_message(original_message, "Can't connect to your channel")
 
 
 @tree.command(name="leave", description="leave your current voice channel")
