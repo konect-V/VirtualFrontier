@@ -5,7 +5,7 @@ pip install discord.py TTS huggingface-hub torch langchain langchain-community p
 
 if ! [ -f llm_model_fast.gguf ]; then
     echo "Downloading fast model ..."
-    wget -q https://gpt4all.io/models/gguf/mistral-7b-openorca.gguf2.Q4_0.gguf -O llm_model_fast.gguf
+    wget -q https://gpt4all.io/models/gguf/gpt4all-falcon-newbpe-q4_0.gguf -O llm_model_fast.gguf
 fi 
 
 if ! [ -f llm_model_large.gguf ]; then

@@ -164,7 +164,7 @@ def generate_answer(llm, original_message, question):
 
         audio_generate_queu.join()
 
-        asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, current_question + "\n" + current_answer, tmpfspath + "/output.wav"), client.loop)
+        asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, "> " + current_question + "\n" + current_answer, tmpfspath + "/output.wav"), client.loop)
     except:
         asyncio.run_coroutine_threadsafe(edit_message(original_message, "Text generation error for the following prompt : " + question), client.loop)
 
@@ -196,7 +196,7 @@ class StreamingLLMToDiscord(BaseCallbackHandler):
 
         if(time.time() - last_time_send_to_discord > 1):
             last_time_send_to_discord = time.time()
-            asyncio.run_coroutine_threadsafe(edit_message(current_original_message, current_question + "\n" + current_answer), client.loop)
+            asyncio.run_coroutine_threadsafe(edit_message(current_original_message, "> " + current_question + "\n" + current_answer), client.loop)
         
         return
     
@@ -291,7 +291,7 @@ tree = app_commands.CommandTree(client)
 @tree.command(name="fast-ask", description="ask a question to AI")
 @app_commands.describe(question="The question")
 async def slash_command(interaction: discord.Interaction, question: str = None): 
-    await interaction.response.send_message("Generating answer to : " + question)
+    await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
     original_message = await interaction.original_response()
 
     thread = threading.Thread(target=generate_answer, args=(llm_fast, original_message, question,))
@@ -300,7 +300,7 @@ async def slash_command(interaction: discord.Interaction, question: str = None):
 @tree.command(name="smart-ask", description="ask a question to AI, with smart answer")
 @app_commands.describe(question="The question")
 async def slash_command(interaction: discord.Interaction, question: str = None):    
-    await interaction.response.send_message("Generating answer to : " + question)
+    await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
     original_message = await interaction.original_response()
 
     thread = threading.Thread(target=generate_answer, args=(llm_large, original_message, question,))
