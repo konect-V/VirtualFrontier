@@ -64,7 +64,7 @@ def generate_audio_worker():
             pass
 
         voice_str = item
-        read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index) + ".wav"
+        read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index)
         output_path = read_audio_path
 
         if not os.path.exists(tmpfspath + "/output.wav"):
@@ -72,15 +72,29 @@ def generate_audio_worker():
 
         try:
             language = detect(voice_str)
-            tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
-            # Concatenate the two wav
-            if output_path != tmpfspath + "/output.wav":
-                sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
-                sound_second = AudioSegment.from_wav(read_audio_path)
-                combined_sounds = sound_first + sound_second
-                combined_sounds.export(tmpfspath + "/output.wav", format="wav")
+            if device == "cuda":
+                read_audio_path += ".wav"
+                tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
+                # Concatenate the two wav
+                if output_path != tmpfspath + "/output.wav":
+                    sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
+                    sound_second = AudioSegment.from_wav(read_audio_path)
+                    combined_sounds = sound_first + sound_second
+                    combined_sounds.export(tmpfspath + "/output.wav", format="wav")
+                else:
+                    shutil.copyfile(output_path, read_audio_path)
             else:
-                shutil.copyfile(output_path, read_audio_path)
+                # Use gTTS for faster process
+                read_audio_path += ".mp3"
+                gTTS(text=voice_str, lang=language).save(read_audio_path)
+                # Concatenate the two wav
+                if output_path != tmpfspath + "/output.wav":
+                    sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
+                    sound_second = AudioSegment.from_mp3(read_audio_path)
+                    combined_sounds = sound_first + sound_second
+                    combined_sounds.export(tmpfspath + "/output.wav", format="wav")
+                else:
+                    shutil.copyfile(output_path, read_audio_path)
 
             audio_generate_index += 1
         except:
@@ -232,9 +246,6 @@ for dir in dirs:
         break
 
 
-threading.Thread(target=play_audio_worker).start()
-threading.Thread(target=generate_audio_worker).start()
-
 callback_manager = CallbackManager([StreamingLLMToDiscord()])
 
 print("Loading llm fast...")
@@ -259,11 +270,15 @@ print("Loading TTS...")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model_path = get_user_data_dir("tts/tts_models--multilingual--multi-dataset--xtts_v2")
-print(model_path)
-if not os.path.isdir(model_path):
-    shutil.copytree("tts_model/XTTS-v2", model_path)
 
-tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+if device == "cuda": # Use TTS only if cuda is available
+    if not os.path.isdir(model_path):
+        shutil.copytree("tts_model/XTTS-v2", model_path)
+    tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+
+
+threading.Thread(target=play_audio_worker).start()
+threading.Thread(target=generate_audio_worker).start()
 
 print("Loading Discord...")
 intents = discord.Intents.default()
@@ -304,7 +319,8 @@ async def slash_command(interaction: discord.Interaction):
         current_voice_channels = await channel.connect()
         await edit_message(original_message, "Connect with success to your channel")
     except Exception as e:
-        await edit_message(original_message, "Can't connect to your channel : " + e)
+        print(e)
+        await edit_message(original_message, "Can't connect to your channel")
 
 
 @tree.command(name="leave", description="leave your current voice channel")
