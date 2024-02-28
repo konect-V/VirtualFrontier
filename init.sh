@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 echo "Downloading pip deps ..."
-pip install discord.py TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect fs llama-cpp-python ffmpeg
+pip install discord.py TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect fs llama-cpp-python ffmpeg libav-tools libavcodec-extra-53
 
 if ! [ -f llm_model_fast.gguf ]; then
     echo "Downloading fast model ..."
