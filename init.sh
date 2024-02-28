@@ -4,7 +4,7 @@ echo "Downloading deps ..."
 sudo apt install ffmpeg libavcodec-extra
 
 echo "Downloading pip deps ..."
-pip install discord.py TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect fs llama-cpp-python
+pip install discord.py discord.py[voice] TTS huggingface-hub torch langchain langchain-community pydub gtts langdetect fs llama-cpp-python
 
 if ! [ -f llm_model_fast.gguf ]; then
     echo "Downloading fast model ..."
