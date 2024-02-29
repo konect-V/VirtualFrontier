@@ -302,20 +302,26 @@ tree = app_commands.CommandTree(client)
 @tree.command(name="fast-ask", description="ask a question to AI")
 @app_commands.describe(question="The question")
 async def slash_command(interaction: discord.Interaction, question: str = None): 
-    await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
-    original_message = await interaction.original_response()
+    if question == None:
+        await interaction.response.send_message("You must provide a question")
+    else:
+        await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
+        original_message = await interaction.original_response()
 
-    thread = threading.Thread(target=generate_answer, args=(llm_fast, original_message, question,))
-    thread.start()
+        thread = threading.Thread(target=generate_answer, args=(llm_fast, original_message, question,))
+        thread.start()
 
 @tree.command(name="smart-ask", description="ask a question to AI, with smart answer")
 @app_commands.describe(question="The question")
-async def slash_command(interaction: discord.Interaction, question: str = None):    
-    await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
-    original_message = await interaction.original_response()
+async def slash_command(interaction: discord.Interaction, question: str = None):
+    if question == None:
+        await interaction.response.send_message("You must provide a question")
+    else: 
+        await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
+        original_message = await interaction.original_response()
 
-    thread = threading.Thread(target=generate_answer, args=(llm_large, original_message, question,))
-    thread.start()
+        thread = threading.Thread(target=generate_answer, args=(llm_large, original_message, question,))
+        thread.start()
 
 @tree.command(name="join", description="join your current voice channel")
 async def slash_command(interaction: discord.Interaction):    
