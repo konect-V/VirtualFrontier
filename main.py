@@ -136,7 +136,10 @@ def play_audio_worker():
                     try:
                         voice_str = voice_str_list[audio_generate_index_read]
                         read_audio_path = tmpfspath + "/output_tmp_fast_" + str(audio_generate_index_read) + ".mp3"
-                        language = detect(voice_str)
+                        try:
+                            language = detect(voice_str)
+                        except:
+                            language = "en"
                         gTTS(text=voice_str, lang=language).save(read_audio_path)
                         current_voice_channel.play(discord.FFmpegPCMAudio(source=read_audio_path))
                         audio_generate_index_read += 1
@@ -151,6 +154,7 @@ def play_audio_worker():
 
 def generate_audio(voice_str):
     global audio_generate_queu
+    voice_str = voice_str.replace("\"", "")
     voice_str_list.append(voice_str)
     audio_generate_queu.put(voice_str)
 
