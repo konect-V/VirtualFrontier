@@ -38,7 +38,7 @@ tmpfspath = ""
 voice_str_list = []
 current_answer = ""
 current_question = ""
-use_natural_tts = False
+use_natural_tts = os.getenv("USE_NATURAL_TTS", 'False').lower() in ('true', '1', 't')
 audio_generate_index = 0
 current_sentence_index = 0
 current_voice_channel = None
@@ -301,13 +301,13 @@ llm_large = LlamaCpp(
     verbose=True
 )
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 if use_natural_tts: # Use TTS only if cuda is available
     print("Loading TTS...")
     model_path = get_user_data_dir("tts/tts_models--multilingual--multi-dataset--xtts_v2")
     if not os.path.isdir(model_path):
         shutil.copytree("tts_model/XTTS-v2", model_path)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 
 
