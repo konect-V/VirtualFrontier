@@ -152,8 +152,8 @@ def generate_answer(llm, original_message, question):
     lock_answer.acquire(blocking=True, timeout=-1)
 
     try:
-        pre_prompt = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'. "
-        prompt = pre_prompt + question + " Assistant: "
+        pre_prompt = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'. User: "
+        prompt = pre_prompt + question + "\n\n Assistant: "
 
         # Reset variables
         if os.path.exists(tmpfspath + "/output.wav"):
