@@ -181,7 +181,7 @@ def generate_answer_worker():
                 break
 
         try:
-            pre_prompt = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'. User: "
+            pre_prompt = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'. You only write the same language of the 'User'. Your only name is 'Virtual Frontier'. User: "
             prompt = pre_prompt + question + "\n\n Assistant: "
 
             # Reset variables
