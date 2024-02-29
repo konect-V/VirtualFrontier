@@ -167,8 +167,10 @@ def generate_answer(llm, original_message, question):
         end_of_sentence = " people on the waiting list"
 
 
-    asyncio.run_coroutine_threadsafe(edit_message(original_message, "> " + question + "\nI am thinking to generate you the best answer...\n There's currently " + waiting_list + end_of_sentence), client.loop)
+    asyncio.run_coroutine_threadsafe(edit_message(original_message, "> " + question + "\nI am thinking to generate you the best answer...\n There's currently " + str(waiting_list) + end_of_sentence), client.loop)
+    waiting_list += 1
     lock_answer.acquire(blocking=True, timeout=-1)
+    waiting_list -= 1
 
     # Update voice channel
     current_voice_channel = None
