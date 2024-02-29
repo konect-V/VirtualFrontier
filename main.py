@@ -164,7 +164,7 @@ def generate_answer(llm, original_message, question):
         current_question = question
         current_original_message = original_message
 
-        llm.invoke(prompt, temperature=0.1, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
+        llm.invoke(prompt, temperature=0.7, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
 
         
         sentences = re.split(r'(\.|\?|!|:|,)', current_answer)
