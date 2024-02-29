@@ -352,7 +352,7 @@ async def slash_command(interaction: discord.Interaction):
 @client.event
 async def on_ready():
     await tree.sync()
-    await client.change_presence(activity=discord.Streaming(name="Github", url="https://github.com/konect-V/VirtualFrontier"))
+    await client.change_presence(status=discord.Status.Online, activity=discord.game('Github : https://github.com/konect-V/VirtualFrontier'))
     print(f'Logged in as `{client.user}`')
 
 client.run(os.environ["DISCORD_TOKEN"])

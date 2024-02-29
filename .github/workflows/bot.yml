@@ -20,4 +20,4 @@ jobs:
     - name: Run bot
       env:
         DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-      run: python3 main.py
+      run: python3 -u main.py
