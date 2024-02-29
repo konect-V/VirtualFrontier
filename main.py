@@ -164,7 +164,7 @@ def generate_answer(llm, original_message, question):
         current_question = question
         current_original_message = original_message
 
-        llm.invoke(prompt, temperature=0.7, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
+        llm.invoke(prompt, temperature=0.1, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
 
         
         sentences = re.split(r'(\.|\?|!|:|,)', current_answer)
@@ -353,7 +353,7 @@ async def slash_command(interaction: discord.Interaction):
 @client.event
 async def on_ready():
     await tree.sync()
-    await client.change_presence(activity=discord.game('Github : https://github.com/konect-V/VirtualFrontier'))
+    await client.change_presence(activity=discord.Game('Github : https://github.com/konect-V/VirtualFrontier'))
     print(f'Logged in as `{client.user}`')
 
 client.run(os.environ["DISCORD_TOKEN"])
