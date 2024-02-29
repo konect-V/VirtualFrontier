@@ -264,7 +264,7 @@ print("Loading llm fast...")
 llm_fast = LlamaCpp(
     model_path="./llm_model_fast.gguf",
     n_gpu_layers=32,
-    n_ctx=2048,
+    n_ctx=4096,
     callback_manager=callback_manager, 
     verbose=True
 )
@@ -273,7 +273,7 @@ print("Loading llm large...")
 llm_large = LlamaCpp(
     model_path="./llm_model_large.gguf",
     n_gpu_layers=32,
-    n_ctx=2048,
+    n_ctx=4096,
     callback_manager=callback_manager, 
     verbose=True
 )
