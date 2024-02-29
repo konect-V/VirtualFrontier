@@ -41,8 +41,10 @@ current_question = ""
 use_natural_tts = False
 audio_generate_index = 0
 current_sentence_index = 0
-current_voice_channels = None
+current_voice_channel = None
+connected_voice_channels = []
 last_time_send_to_discord = 0
+audio_generate_index_read = 0
 current_original_message = None
 audio_generate_queu = queue.Queue()
 
@@ -56,7 +58,7 @@ async def edit_message_file(original_message, message, file_path):
         await original_message.add_files(discord.File(file_path))
 
 def generate_audio_worker():
-    global current_original_message, current_voice_channels, audio_generate_queu, audio_generate_index
+    global current_original_message, current_voice_channel, audio_generate_queu, audio_generate_index
 
     while True:
         item = audio_generate_queu.get()
@@ -73,6 +75,10 @@ def generate_audio_worker():
 
         try:
             language = detect(voice_str)
+        except:
+            language = "en"
+
+        try:
             if use_natural_tts:
                 read_audio_path += ".wav"
                 tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
@@ -105,11 +111,10 @@ def generate_audio_worker():
 
 
 def play_audio_worker():
-    global current_original_message, current_voice_channels, audio_play_queu, audio_generate_index, audio_generate_queu, voice_str_list
+    global audio_generate_index_read, current_original_message, current_voice_channel, audio_play_queu, audio_generate_index, audio_generate_queu, voice_str_list
 
-    audio_generate_index_read = 0
     while True:
-        if current_voice_channels != None:
+        if current_voice_channel != None:
             if audio_generate_index_read < audio_generate_index:
                 read_audio_path = tmpfspath + "/output_tmp_" + str(audio_generate_index_read)
                 if use_natural_tts:
@@ -117,27 +122,30 @@ def play_audio_worker():
                 else:
                     read_audio_path += ".mp3"
 
-                while current_voice_channels.is_playing():
+                while current_voice_channel.is_playing():
                     time.sleep(0.01)
                 
                 try:
-                    current_voice_channels.play(discord.FFmpegPCMAudio(source=read_audio_path))
+                    current_voice_channel.play(discord.FFmpegPCMAudio(source=read_audio_path))
                 except:
                     pass
                 
                 audio_generate_index_read += 1
             else:
-                if (not audio_generate_queu.empty()) and (not current_voice_channels.is_playing()):
+                if (not audio_generate_queu.empty()) and (not current_voice_channel.is_playing()):
                     try:
                         voice_str = voice_str_list[audio_generate_index_read]
                         read_audio_path = tmpfspath + "/output_tmp_fast_" + str(audio_generate_index_read) + ".mp3"
                         language = detect(voice_str)
                         gTTS(text=voice_str, lang=language).save(read_audio_path)
-                        current_voice_channels.play(discord.FFmpegPCMAudio(source=read_audio_path))
+                        current_voice_channel.play(discord.FFmpegPCMAudio(source=read_audio_path))
                         audio_generate_index_read += 1
                     except:
                         pass
                 time.sleep(0.01)
+        else:
+            if audio_generate_index_read < audio_generate_index:
+                audio_generate_index_read += 1
 
 
 
@@ -147,9 +155,17 @@ def generate_audio(voice_str):
     audio_generate_queu.put(voice_str)
 
 def generate_answer(llm, original_message, question):
-    global current_answer, current_question, current_original_message, current_sentence_index, audio_generate_queu, audio_generate_index
+    global current_answer, current_question, current_original_message, current_sentence_index, audio_generate_queu, audio_generate_index, current_voice_channel, connected_voice_channels
 
     lock_answer.acquire(blocking=True, timeout=-1)
+
+    # Update voice channel
+    current_voice_channel = None
+
+    for voice_channel in connected_voice_channels:
+        if voice_channel.guild == original_message.guild:
+            current_voice_channel = voice_channel
+            break
 
     try:
         pre_prompt = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'. User: "
@@ -180,6 +196,9 @@ def generate_answer(llm, original_message, question):
     except:
         asyncio.run_coroutine_threadsafe(edit_message(original_message, "Text generation error for the following prompt : " + question), client.loop)
 
+    while audio_generate_index_read < audio_generate_index:
+        time.sleep(0.01)
+            
     lock_answer.release()
 
 # Class
@@ -325,7 +344,7 @@ async def slash_command(interaction: discord.Interaction, question: str = None):
 
 @tree.command(name="join", description="join your current voice channel")
 async def slash_command(interaction: discord.Interaction):    
-    global current_voice_channels
+    global connected_voice_channels
 
     await interaction.response.send_message("Connecting to your channel...")
     original_message = await interaction.original_response()
@@ -334,7 +353,7 @@ async def slash_command(interaction: discord.Interaction):
     
     try:
         channel = interaction.user.voice.channel
-        current_voice_channels = await channel.connect()
+        connected_voice_channels.append(await channel.connect())
         await edit_message(original_message, "Connect with success to your channel")
     except:
         await edit_message(original_message, "Can't connect to your channel")
@@ -342,17 +361,15 @@ async def slash_command(interaction: discord.Interaction):
 
 @tree.command(name="leave", description="leave your current voice channel")
 async def slash_command(interaction: discord.Interaction):   
-    global current_voice_channels
-
     await interaction.response.send_message("Leaving your channel...")
     original_message = await interaction.original_response()
 
     await client.wait_until_ready()
 
-    for current_voice_channels in client.voice_clients:
-        if current_voice_channels.guild == interaction.guild:
+    for voice_channel in connected_voice_channels:
+        if voice_channel.guild == interaction.guild:
             await edit_message(original_message, "Leave with success your channel")
-            await current_voice_channels.disconnect()
+            await voice_channel.disconnect()
             return
     await edit_message(original_message, "Can't leave your channel")
 
