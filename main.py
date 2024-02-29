@@ -33,12 +33,11 @@ from langchain_core.callbacks.base import BaseCallbackHandler
 
 #global variable
 lock_audio = threading.Lock()
-lock_answer = threading.Lock()
 tmpfspath = ""
-waiting_list = 0
 voice_str_list = []
 current_answer = ""
 current_question = ""
+answer_queu = queue.Queue()
 use_natural_tts = os.getenv("USE_NATURAL_TTS", 'False').lower() in ('true', '1', 't')
 audio_generate_index = 0
 current_sentence_index = 0
@@ -159,62 +158,64 @@ def generate_audio(voice_str):
     voice_str_list.append(voice_str)
     audio_generate_queu.put(voice_str)
 
-def generate_answer(llm, original_message, question):
-    global current_answer, current_question, current_original_message, current_sentence_index, audio_generate_queu, audio_generate_index, current_voice_channel, connected_voice_channels, waiting_list
+def generate_answer_worker():
+    global current_answer, current_question, current_original_message, current_sentence_index, audio_generate_queu, audio_generate_index, current_voice_channel, connected_voice_channels
+    
+    while True:
+        item = answer_queu.get()
 
-    end_of_sentence = " person on the waiting list"
-    if waiting_list > 1:
-        end_of_sentence = " people on the waiting list"
-
-
-    asyncio.run_coroutine_threadsafe(edit_message(original_message, "> " + question + "\nI am thinking to generate you the best answer...\nThere's currently " + str(waiting_list) + end_of_sentence), client.loop)
-    waiting_list += 1
-    lock_answer.acquire(blocking=True, timeout=-1)
-    waiting_list -= 1
-
-    # Update voice channel
-    current_voice_channel = None
-
-    for voice_channel in connected_voice_channels:
-        if voice_channel.guild == original_message.guild:
-            current_voice_channel = voice_channel
-            break
-
-    try:
-        pre_prompt = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'. User: "
-        prompt = pre_prompt + question + "\n\n Assistant: "
-
-        # Reset variables
-        if os.path.exists(tmpfspath + "/output.wav"):
-            os.remove(tmpfspath + "/output.wav")
-        
-        current_answer = ""
-        current_sentence_index = 0
-        current_question = question
-        current_original_message = original_message
-
-        llm.invoke(prompt, temperature=0.1, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
-
-        try:
-            sentences = re.split(r'(\.|\?|!|:|,)', current_answer)
-            voice_str = sentences[len(sentences) - 1]
-            if voice_str != "":
-                generate_audio(voice_str)
-        except:
+        if item == None:
+            time.sleep(0.1)
             pass
 
-        asyncio.run_coroutine_threadsafe(edit_message(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End of text generation)* \n *(Finishing to generate audio...)* "), client.loop)
-        
-        audio_generate_queu.join()
+        llm = item[0]
+        question = item[1]
+        original_message = item[2]
 
-        asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End generation)* ", tmpfspath + "/output.wav"), client.loop)
-    except:
-        asyncio.run_coroutine_threadsafe(edit_message(original_message, "Text generation error for the following prompt : " + question), client.loop)
+        # Update voice channel
+        current_voice_channel = None
 
-    while audio_generate_index_read < audio_generate_index:
-        time.sleep(0.01)
+        for voice_channel in connected_voice_channels:
+            if voice_channel.guild == original_message.guild:
+                current_voice_channel = voice_channel
+                break
+
+        try:
+            pre_prompt = "You are a helpful assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as 'Assistant'. User: "
+            prompt = pre_prompt + question + "\n\n Assistant: "
+
+            # Reset variables
+            if os.path.exists(tmpfspath + "/output.wav"):
+                os.remove(tmpfspath + "/output.wav")
             
-    lock_answer.release()
+            current_answer = ""
+            current_sentence_index = 0
+            current_question = question
+            current_original_message = original_message
+
+            llm.invoke(prompt, temperature=0.1, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
+
+            try:
+                sentences = re.split(r'(\.|\?|!|:|,)', current_answer)
+                voice_str = sentences[len(sentences) - 1]
+                if voice_str != "":
+                    generate_audio(voice_str)
+            except:
+                pass
+
+            asyncio.run_coroutine_threadsafe(edit_message(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End of text generation)* \n *(Finishing to generate audio...)* "), client.loop)
+            
+            audio_generate_queu.join()
+
+            asyncio.run_coroutine_threadsafe(edit_message_file(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End generation)* ", tmpfspath + "/output.wav"), client.loop)
+        except:
+            asyncio.run_coroutine_threadsafe(edit_message(original_message, "Text generation error for the following prompt : " + question), client.loop)
+
+        while audio_generate_index_read < audio_generate_index:
+            time.sleep(0.01)
+                
+        answer_queu.task_done()
+    
 
 # Class
 class StreamingLLMToDiscord(BaseCallbackHandler):
@@ -324,6 +325,7 @@ if use_natural_tts: # Use TTS only if cuda is available
 
 threading.Thread(target=play_audio_worker).start()
 threading.Thread(target=generate_audio_worker).start()
+threading.Thread(target=generate_answer_worker).start()
 
 print("Loading Discord...")
 intents = discord.Intents.default()
@@ -336,26 +338,38 @@ tree = app_commands.CommandTree(client)
 @tree.command(name="fast-ask", description="ask a question to AI")
 @app_commands.describe(question="The question")
 async def slash_command(interaction: discord.Interaction, question: str = None): 
+    global answer_queu
+
     if question == None:
         await interaction.response.send_message("You must provide a question")
     else:
-        await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
+        waiting_count = answer_queu.qsize()
+        end_of_sentence = " person on the waiting list"
+        if waiting_count > 1:
+            end_of_sentence = " people on the waiting list"
+
+        await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...\nThere's currently " + str(answer_queu.qsize()) + end_of_sentence)
         original_message = await interaction.original_response()
 
-        thread = threading.Thread(target=generate_answer, args=(llm_fast, original_message, question,))
-        thread.start()
+        answer_queu.put([llm_fast, question, original_message])
 
 @tree.command(name="smart-ask", description="ask a question to AI, with smart answer")
 @app_commands.describe(question="The question")
 async def slash_command(interaction: discord.Interaction, question: str = None):
+    global answer_queu
+
     if question == None:
         await interaction.response.send_message("You must provide a question")
     else: 
-        await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...")
+        waiting_count = answer_queu.qsize()
+        end_of_sentence = " person on the waiting list"
+        if waiting_count > 1:
+            end_of_sentence = " people on the waiting list"
+
+        await interaction.response.send_message("> " + question + "\nI am thinking to generate you the best answer...\nThere's currently " + str(answer_queu.qsize()) + end_of_sentence)
         original_message = await interaction.original_response()
 
-        thread = threading.Thread(target=generate_answer, args=(llm_large, original_message, question,))
-        thread.start()
+        answer_queu.put([llm_large, question, original_message])
 
 @tree.command(name="join", description="join your current voice channel")
 async def slash_command(interaction: discord.Interaction):    
