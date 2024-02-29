@@ -71,8 +71,8 @@ def generate_audio_worker():
         if not os.path.exists(tmpfspath + "/output.wav"):
             output_path = tmpfspath + "/output.wav"
 
-        language = detect(voice_str)
         try:
+            language = detect(voice_str)
             if use_natural_tts:
                 read_audio_path += ".wav"
                 tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
