@@ -21,7 +21,7 @@ from langdetect import detect
 from pydub import AudioSegment
 from discord import app_commands
 from typing import Any, Dict, List
-from langchain.llms import LlamaCpp
+from langchain_community.llms import LlamaCpp
 from TTS.utils.generic_utils import get_user_data_dir
 from langchain_core.outputs import LLMResult
 from langchain_core.messages import BaseMessage
@@ -35,6 +35,7 @@ from langchain_core.callbacks.base import BaseCallbackHandler
 lock_audio = threading.Lock()
 lock_answer = threading.Lock()
 tmpfspath = ""
+waiting_list = 0
 voice_str_list = []
 current_answer = ""
 current_question = ""
@@ -159,8 +160,14 @@ def generate_audio(voice_str):
     audio_generate_queu.put(voice_str)
 
 def generate_answer(llm, original_message, question):
-    global current_answer, current_question, current_original_message, current_sentence_index, audio_generate_queu, audio_generate_index, current_voice_channel, connected_voice_channels
+    global current_answer, current_question, current_original_message, current_sentence_index, audio_generate_queu, audio_generate_index, current_voice_channel, connected_voice_channels, waiting_list
 
+    end_of_sentence = " person on the waiting list"
+    if waiting_list > 1:
+        end_of_sentence = " people on the waiting list"
+
+
+    asyncio.run_coroutine_threadsafe(edit_message(original_message, "> " + question + "\nI am thinking to generate you the best answer...\n There's currently " + waiting_list + end_of_sentence)
     lock_answer.acquire(blocking=True, timeout=-1)
 
     # Update voice channel
