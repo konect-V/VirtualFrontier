@@ -38,7 +38,7 @@ tmpfspath = ""
 voice_str_list = []
 current_answer = ""
 current_question = ""
-use_natural_tts = True
+use_natural_tts = False
 audio_generate_index = 0
 current_sentence_index = 0
 current_voice_channels = None
@@ -72,31 +72,32 @@ def generate_audio_worker():
             output_path = tmpfspath + "/output.wav"
 
         language = detect(voice_str)
-        if use_natural_tts:
-            read_audio_path += ".wav"
-            print("Generating audio with TTS")
-            tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
-            print("End generating audio with TTS")
-            # Concatenate the two wav
-            if output_path != tmpfspath + "/output.wav":
-                sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
-                sound_second = AudioSegment.from_wav(read_audio_path)
-                combined_sounds = sound_first + sound_second
-                combined_sounds.export(tmpfspath + "/output.wav", format="wav")
+        try:
+            if use_natural_tts:
+                read_audio_path += ".wav"
+                tts.tts_to_file(text=voice_str, speaker_wav="input.wav", language=language, file_path=output_path)
+                # Concatenate the two wav
+                if output_path != tmpfspath + "/output.wav":
+                    sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
+                    sound_second = AudioSegment.from_wav(read_audio_path)
+                    combined_sounds = sound_first + sound_second
+                    combined_sounds.export(tmpfspath + "/output.wav", format="wav")
+                else:
+                    shutil.copyfile(output_path, read_audio_path)
             else:
-                shutil.copyfile(output_path, read_audio_path)
-        else:
-            # Use gTTS for faster process
-            read_audio_path += ".mp3"
-            gTTS(text=voice_str, lang=language).save(read_audio_path)
-            # Concatenate the two wav
-            if output_path != tmpfspath + "/output.wav":
-                sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
-                sound_second = AudioSegment.from_mp3(read_audio_path)
-                combined_sounds = sound_first + sound_second
-                combined_sounds.export(tmpfspath + "/output.wav", format="wav")
-            else:
-                AudioSegment.from_mp3(read_audio_path).export(output_path, format="wav")
+                # Use gTTS for faster process
+                read_audio_path += ".mp3"
+                gTTS(text=voice_str, lang=language).save(read_audio_path)
+                # Concatenate the two wav
+                if output_path != tmpfspath + "/output.wav":
+                    sound_first = AudioSegment.from_wav(tmpfspath + "/output.wav")
+                    sound_second = AudioSegment.from_mp3(read_audio_path)
+                    combined_sounds = sound_first + sound_second
+                    combined_sounds.export(tmpfspath + "/output.wav", format="wav")
+                else:
+                    AudioSegment.from_mp3(read_audio_path).export(output_path, format="wav")
+        except:
+            pass
 
         audio_generate_index += 1
 
@@ -352,7 +353,7 @@ async def slash_command(interaction: discord.Interaction):
 @client.event
 async def on_ready():
     await tree.sync()
-    await client.change_presence(status=discord.Status.Online, activity=discord.game('Github : https://github.com/konect-V/VirtualFrontier'))
+    await client.change_presence(activity=discord.game('Github : https://github.com/konect-V/VirtualFrontier'))
     print(f'Logged in as `{client.user}`')
 
 client.run(os.environ["DISCORD_TOKEN"])
