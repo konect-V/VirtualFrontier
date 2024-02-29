@@ -193,11 +193,13 @@ def generate_answer(llm, original_message, question):
 
         llm.invoke(prompt, temperature=0.1, top_p=0.1, top_k=40, repeat_penalty=1.176, max_tokens=2048)
 
-        
-        sentences = re.split(r'(\.|\?|!|:|,)', current_answer)
-        voice_str = sentences[len(sentences) - 1]
-        if voice_str != "":
-            generate_audio(voice_str)
+        try:
+            sentences = re.split(r'(\.|\?|!|:|,)', current_answer)
+            voice_str = sentences[len(sentences) - 1]
+            if voice_str != "":
+                generate_audio(voice_str)
+        except:
+            pass
 
         asyncio.run_coroutine_threadsafe(edit_message(current_original_message, "> " + current_question + "\n" + current_answer + "\n *(End of text generation)* \n *(Finishing to generate audio...)* "), client.loop)
         
